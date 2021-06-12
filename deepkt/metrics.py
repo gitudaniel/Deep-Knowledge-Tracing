@@ -15,8 +15,8 @@ class AUC(tf.keras.metrics.AUC):
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(AUC, self).update_state(y_true=true,
-                                                 y_pred=pred,
-                                                 sample_weight=sample_weight)
+                                      y_pred=pred,
+                                      sample_weight=sample_weight)
 
 
 class Precision(tf.keras.metrics.Precision):
@@ -27,7 +27,7 @@ class Precision(tf.keras.metrics.Precision):
                                             sample_weight=sample_weight)
 
 
-class Recall(tf.keras.metrics.Recall):
+class Recall(tf.keras.metrics.Recall): 
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(Recall, self).update_state(y_true=true,
@@ -62,7 +62,7 @@ class FalseNegatives(tf.keras.metrics.FalseNegatives):
 class FalsePositives(tf.keras.metrics.FalsePositives):
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
-        super(FalsePositives, self).update_state(y_true=true,
+        super(Falsepositives, self).update_state(y_true=true,
                                                  y_pred=pred,
                                                  sample_weight=sample_weight)
 
@@ -71,13 +71,13 @@ class TrueNegatives(tf.keras.metrics.TrueNegatives):
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(TrueNegatives, self).update_state(y_true=true,
-                                                y_pred=pred,
-                                                sample_weight=sample_weight)
+                                                 y_pred=pred,
+                                                 sample_weight=sample_weight)
 
 
-class TruePositives(tf.keras.metrics.TruePositives):
+class TruePositives(tf.keras.metrics.TrueNegatives):
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
-        super(TrueNegatives, self).update_state(y_true=true,
-                                                y_pred=pred,
-                                                sample_weight=sample_weight)
+        super(TruePositives, self).update_state(y_true=true,
+                                                 y_pred=pred,
+                                                 sample_weight=sample_weight)
