@@ -4,6 +4,7 @@ from deepkt import data_util
 
 
 class BinaryAccuracy(tf.keras.metrics.BinaryAccuracy):
+    """Calculates how often predictions match binary labels."""
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(BinaryAccuracy, self).update_state(y_true=true,
@@ -12,6 +13,8 @@ class BinaryAccuracy(tf.keras.metrics.BinaryAccuracy):
 
 
 class AUC(tf.keras.metrics.AUC):
+    """The probability that the model ranks a random positive more higly than
+    a random negative."""
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(AUC, self).update_state(y_true=true,
@@ -20,6 +23,7 @@ class AUC(tf.keras.metrics.AUC):
 
 
 class Precision(tf.keras.metrics.Precision):
+    """What proportion of positive identifications was actually correct."""
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(Precision, self).update_state(y_true=true,
@@ -28,6 +32,7 @@ class Precision(tf.keras.metrics.Precision):
 
 
 class Recall(tf.keras.metrics.Recall): 
+    """What proportion of actual positives was identified correctly."""
     def update_state(self, y_true, y_pred, sample_weight=None):
         true, pred = data_util.get_target(y_true, y_pred)
         super(Recall, self).update_state(y_true=true,

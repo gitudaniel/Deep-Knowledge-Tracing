@@ -8,11 +8,7 @@ MASK_VALUE = -1  # The masking value cannot be zero.
 
 def load_dataset(fn, batch_size=32, shuffle=True):
     df = pd.read_csv(fn)
-    # count number of visually_impaired students to justify dropping
-    # add PCA (principal component analysis) to justify dropping
-    df.drop(['date_of_evaluation', 'taxonomy_id_1', 'taxonomy_id_2', 'number_of_taxonomies', 'taxonomy_id_1_class_level', 'taxonomy_id_1_specific_objective', 'taxonomy_id_1_subject', 'taxonomy_id_1_unit', 'taxonomy_id_2_class_level', 'taxonomy_id_2_specific_objective', 'taxonomy_id_2_subject', 'taxonomy_id_2_unit', 'student_first_name', 'student_last_name', 'student_updated_at', 'student_created_at', 'visually_impaired', 'class_name', 'class_grade', 'school_name', 'school_details'], axis=1, inplace=True)
-
-    # df = df.sample(n=100000)
+    
     df = df[df['subject'] == 'math']
 
     if "taxonomy_id_0" not in df.columns:
@@ -43,6 +39,10 @@ def load_dataset(fn, batch_size=32, shuffle=True):
     # Step 4 - Convert to a sequence per user id and shift features 1 timestep
     # Create a series for each student followed by a tuple of arrays for their
     # taxonomy_with_answer, factorized_taxonomy_code, answer_selection_correct
+    # for factorized_taxonomy_code and answer_selection correct we start from the
+    # second value this is because since we're using a timestep of 1, we skip
+    # one row at the beginning of the dataset to be used as prior observations
+    # we're predicting on taxonomy_with_answer so we leave out the last row
     seq = df.groupby('student_id').apply(
         lambda r: (
             r['taxonomy_with_answer'].values[:-1],
@@ -56,25 +56,44 @@ def load_dataset(fn, batch_size=32, shuffle=True):
     # create a tensorflow Dataset from our series
     # Dataset potentially large set of elements in a format
     # easy for Tensorflow to work with and manipulate
+    # from_generator() creates a Dataset from a python iterable
+    # in this case a series
+    # we define the output type of the series
     dataset = tf.data.Dataset.from_generator(
         generator=lambda: seq,
         output_types=(tf.int32, tf.int32, tf.float32)
-        # output_types=(tf.int32, tf.int32, tf.int32)
     )
 
-    # fill a buffer with nb_users elements (4047 elements)
-    # randomly sample from this buffer, replacing the
-    # selected elements with new elements.
-    # our buffer_size is equal to the number of elements
+    # Create a new dataset by filling up a buffer with the first
+    # elements of the source dataset (1142 in our case)
+    # When asked for an item, it pulls one randomly from the
+    # buffer and replace it with a fresh one from the source
+    # dataset until it has iterated entirely through the
+    # source dataset.
+    # At this point it will continue to pull items randomly
+    # from the buffer until it is empty
+    # The seed ensures we get the same random order every time
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=nb_users)
+        dataset = dataset.shuffle(buffer_size=nb_users, seed=42)
 
     # Step 6 - Encode categorical features and merge taxonomies with labels to compute target loss.
     # More info: https://github.com/tensorflow/tensorflow/issues/32142
     features_depth = df['taxonomy_with_answer'].max() + 1
     taxonomy_depth = df['factorized_taxonomy_code'].max() + 1
 
+    # do a one hot encoding on taxonomy_with_answer with the depth being features_depth
+    # depth means the number of values to be included in the resulting list
+    # e.g. if we one_hot encode [3] with a depth of 5 we get [0, 0, 1, 0, 0]
     # expand_dims -> add a dimension to the data
+    # i.e. turn the answer_selection_correct into a numpy array
+    # tf.concat adds the answer_selection_correct value to the end of
+    # one_hot encoded factorized_taxonomy_code
+    # if we one_hot encode factorized_taxonomy_code to get [0, 0, 1, 0, 0]
+    # with answer_selection_correct as 1
+    # tf.concat gives us [0, 0, 1, 0, 0, 1]
+    # axis = -1 means that we start from the end of the rank
+    # https://stackoverflow.com/a/54166798
+    # https://www.tensorflow.org/api_docs/python/tf/concat
     dataset = dataset.map(
         lambda feat, factorized_taxonomy_code, label: (
             tf.one_hot(feat, depth=features_depth),
@@ -87,19 +106,26 @@ def load_dataset(fn, batch_size=32, shuffle=True):
             )
         )
     )
-    # dataset = dataset.map(
-    #     lambda feat, skill: (
-    #         tf.one_hot(feat, depth=features_depth),
-    #         tf.one_hot(skill, depth=taxonomy_depth),
-    #     )
-    # )
 
     # Step 7 - Pad sequences per batch
     # https://www.tensorflow.org/api_docs/python/tf/data/Dataset#padded_batch
     # https://keras.io/guides/understanding_masking_and_padding/
+    # https://stackoverflow.com/a/49848103
+    # We need to batch items in our dataset and make sure that
+    # all batches have the same size
+    # From the map above we expect to get two lists of matrices mapping
+    # the number of matrices in each list will be the number of evaluations
+    # done by the student
+    # We use the value -1 to pad each of the matrices
+    # for padded shapes we pass [None, None] to say that we want each of the
+    # matrix elements padded to the longest in each dimension
+    # i.e if the longest matrix has 200 rows and 70 columns all of the matrices
+    # should be padded to have 200 rows and 70 columns
+    # We pass ([None, None], [None, None]) because we have two lists of matrices
+    # drop_remainder means if the last element in the batch does not meet the
+    # dimensions do not include it
     dataset = dataset.padded_batch(
         batch_size=batch_size,
-        # padding_values=(MASK_VALUE, MASK_VALUE),
         padding_values=(
             tf.constant(-1, dtype=tf.float32),
             tf.constant(-1, dtype=tf.float32)
@@ -113,7 +139,13 @@ def load_dataset(fn, batch_size=32, shuffle=True):
 
 
 def split_dataset(dataset, total_size, test_fraction, val_fraction=None):
+    """Split the dataset into train, test and validation."""
     def split(dataset, split_size):
+        """split_size is an integer.
+        From the dataset take split_size number of items
+        Then skip split_size number of items and remain
+        with whatever is left.
+        """
         split_set = dataset.take(split_size)
         dataset = dataset.skip(split_size)
         return dataset, split_set

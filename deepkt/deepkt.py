@@ -17,6 +17,14 @@ class DKTModel(tf.keras.Model):
     """
 
     def __init__(self, nb_features, nb_taxonomies, hidden_units=100, dropout_rate=0.2):
+        """Input instantiates a Keras tensor.
+        shape=(None, nb_features) -> We don't know how many rows to expect, but
+        there should be nb_features number of columns
+        Masking tells the model that some part of the data is actually padding
+        and should be ignored.
+        TimeDistributed -> https://keras.io/api/layers/recurrent_layers/time_distributed/
+                        -> Apply the same set of weights to each of the inputs
+        """
         inputs = tf.keras.Input(shape=(None, nb_features), name='inputs')
         x = tf.keras.layers.Masking(mask_value=data_util.MASK_VALUE)(inputs)
 
