@@ -6,8 +6,9 @@ import numpy as np
 MASK_VALUE = -1  # The masking value cannot be zero.
 
 
-def load_dataset(fn, batch_size=32, shuffle=True):
-    df = pd.read_csv(fn)
+def load_dataset(data, factorized_taxonomies, batch_size=32, shuffle=True):
+    df = pd.read_csv(data)
+    taxonomies = pd.read_csv(factorized_taxonomies)
     
     df = df[df['subject'] == 'math']
 
@@ -28,11 +29,15 @@ def load_dataset(fn, batch_size=32, shuffle=True):
     df = df.groupby('student_id').filter(lambda q: len(q) > 1).copy()
 
     # Step 2 - Enumerate skill id
-    df['factorized_taxonomy_code'], _ = pd.factorize(df['taxonomy_id_0'], sort=True)
+    df['factorized_taxonomy_code'] = df['taxonomy_id_0'].map(
+            taxonomies.set_index('taxonomy_id_0')['factorized_taxonomy_code'])
 
     # Step 3 - Cross skill id with answer to form a synthetic feature
     # feature crossing: https://developers.google.com/machine-learning/crash-course/feature-crosses/crossing-one-hot-vectors
-    df['taxonomy_with_answer'] = df['factorized_taxonomy_code'] * 2 + df['answer_selection_correct']
+    # feature crossing provides more information than would be provided by looking at an individual feature
+    # i.e. think of tic tac toe if a win is a diagonal a1 x a5 x a9 is more useful than simply a1
+    # feature crossing allows us to introduce non-linear learning to a linear learner
+    df['taxonomy_with_answer'] = df['factorized_taxonomy_code'] + df['answer_selection_correct']
 
     df['answer_selection_correct'] = pd.to_numeric(df['answer_selection_correct'])
 
