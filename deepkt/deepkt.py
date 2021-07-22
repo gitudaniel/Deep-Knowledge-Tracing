@@ -16,7 +16,7 @@ class DKTModel(tf.keras.Model):
             and what the model expects.
     """
 
-    def __init__(self, nb_features, nb_taxonomies, hidden_units=100, dropout_rate=0.2):
+    def __init__(self, nb_features, nb_taxonomies, hidden_units=100, dropout_rate=0.2, **kwargs):
         """Input instantiates a Keras tensor.
         shape=(None, nb_features) -> We don't know how many rows to expect, but
         there should be nb_features number of columns
@@ -41,7 +41,12 @@ class DKTModel(tf.keras.Model):
                 name="DKTModel"
         )
 
-    def compile(self, optimizer, metrics=None):
+    def custom_loss(y_true, y_pred):
+        y_true, y_pred = data_util.get_target(y_true, y_pred)
+        return tf.keras.losses.binary_crossentropy(y_true, y_pred)
+
+
+    def compile(self, optimizer, metrics=None, loss=custom_loss):
         """Configures the model for training.
         Arguments:
             optimizer: String (name of optimizer) or optimizer instance.
@@ -157,8 +162,8 @@ class DKTModel(tf.keras.Model):
                  workers=None,
                  use_multiprocessing=False,
                  callbacks=None,
-                 return_dict=True,
-                 _use_cached_eval_dataset=True):
+                 return_dict=True):
+                 # _use_cached_eval_dataset=True):
         """Returns the loss value & metrics values for the model in test mode.
         Computation is done in batches.
         Arguments:
@@ -194,8 +199,8 @@ class DKTModel(tf.keras.Model):
                     workers=workers,
                     use_multiprocessing=use_multiprocessing,
                     callbacks=callbacks,
-                    return_dict=return_dict,
-                    _use_cached_eval_dataset=True)
+                    return_dict=return_dict)
+                    # _use_cached_eval_dataset=True)
 
 
     def evaluate_generator(self, *args, **kwargs):
