@@ -6,9 +6,10 @@ import numpy as np
 MASK_VALUE = -1  # The masking value cannot be zero.
 
 
-def load_dataset(data, factorized_taxonomies, batch_size=32, shuffle=True):
+def load_dataset(data, factorized_taxonomies, factorized_student_ids, batch_size=32, shuffle=True):
     df = pd.read_csv(data)
     taxonomies = pd.read_csv(factorized_taxonomies)
+    students = pd.read_csv(factorized_student_ids)
     
     df = df[df['subject'] == 'math']
 
@@ -22,23 +23,24 @@ def load_dataset(data, factorized_taxonomies, batch_size=32, shuffle=True):
     if not (df['answer_selection_correct'].isin([0, 1])).all():
         raise KeyError(f"The values of the column 'answer_selection_correct' must be 0 or 1.")
 
+    # Step 2 - Enumerate skill id
+    df['factorized_taxonomy_code'] = df['taxonomy_id_0'].map(
+            taxonomies.set_index('taxonomy_id_0')['factorized_taxonomy_code'])
+
+    # Enumerate student id
+    df['factorized_student_id'] = df['student_id'].map(
+            students.set_index('student_id')['factorized_student_id'])
+
     # Step 1.1 - Remove questions without taxonomy
     df.dropna(subset=['taxonomy_id_0'], inplace=True)
 
     # Step 1.2 - Remove users with a single answer
     df = df.groupby('student_id').filter(lambda q: len(q) > 1).copy()
 
-    # Step 2 - Enumerate skill id
-    df['factorized_taxonomy_code'] = df['taxonomy_id_0'].map(
-            taxonomies.set_index('taxonomy_id_0')['factorized_taxonomy_code'])
-
-    # Step 3 - Cross skill id with answer to form a synthetic feature
-    # feature crossing: https://developers.google.com/machine-learning/crash-course/feature-crosses/crossing-one-hot-vectors
-    # feature crossing provides more information than would be provided by looking at an individual feature
-    # i.e. think of tic tac toe if a win is a diagonal a1 x a5 x a9 is more useful than simply a1
-    # feature crossing allows us to introduce non-linear learning to a linear learner
-    df['taxonomy_with_answer'] = df['factorized_taxonomy_code'] + df['answer_selection_correct']
-
+    ## TODO: Replace feature crossing with entity embedding
+    # have entity embedding for factorized_taxonomy_code and answer_selection_correct
+    # include dates with embedding -> split a date into all of its parts (look into fastai datepart)
+    # school holidays, public holidays etc
     df['answer_selection_correct'] = pd.to_numeric(df['answer_selection_correct'])
 
     # Step 4 - Convert to a sequence per user id and shift features 1 timestep
@@ -48,11 +50,14 @@ def load_dataset(data, factorized_taxonomies, batch_size=32, shuffle=True):
     # second value this is because since we're using a timestep of 1, we skip
     # one row at the beginning of the dataset to be used as prior observations
     # we're predicting on taxonomy_with_answer so we leave out the last row
+    # make the student a categorical variable and entity embed it
+    # autoregressively train the LSTM
+
     seq = df.groupby('student_id').apply(
         lambda r: (
-            r['taxonomy_with_answer'].values[:-1],
-            r['factorized_taxonomy_code'].values[1:],
-            r['answer_selection_correct'].values[1:],
+            r['factorized_student_id'],
+            r['factorized_taxonomy_code'],
+            r['answer_selection_correct'],
         )
     )
     nb_users = len(seq)
@@ -83,8 +88,8 @@ def load_dataset(data, factorized_taxonomies, batch_size=32, shuffle=True):
 
     # Step 6 - Encode categorical features and merge taxonomies with labels to compute target loss.
     # More info: https://github.com/tensorflow/tensorflow/issues/32142
-    features_depth = df['taxonomy_with_answer'].max() + 1
-    taxonomy_depth = df['factorized_taxonomy_code'].max() + 1
+    features_depth = students['factorized_student_id'].max() + 1
+    taxonomy_depth = taxonomies['factorized_taxonomy_code'].max() + 1
 
     # do a one hot encoding on taxonomy_with_answer with the depth being features_depth
     # depth means the number of values to be included in the resulting list
