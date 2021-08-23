@@ -9,11 +9,11 @@ The objective is to predict the probabilities of a student correctly answering a
 
 ## Requirements
 
-You'll need Python 3.7 x64 and Tensorflow 2.0 to be able to run this project.
+You'll need Python 3.7 x64 and Tensorflow 2.4.1 to be able to run this project.
 
 If you do not have Python installed yet, it is recommended that you install the [Anaconda](https://www.anaconda.com/download/) distribution of Python, which has almost all packages required in this project. You can also install Python 3.7 x64 from [here](https://www.python.org/downloads/).
 
-Tensorflow 2.0 is installed along with the project. Check the instructions below.
+Tensorflow 2.4.1 is installed along with the project. Check the instructions below.
 
 ## Instructions
 

@@ -150,7 +150,6 @@ class DKTModel(tf.keras.Model):
                 validation_steps=validation_steps,
                 validation_freq=validation_freq)
 
-    # def evaluate(self, dataset, verbose=1, steps=None, callbacks=None):
     def evaluate(self,
                  x=None,
                  y=None,
@@ -163,7 +162,6 @@ class DKTModel(tf.keras.Model):
                  use_multiprocessing=False,
                  callbacks=None,
                  return_dict=True):
-                 # _use_cached_eval_dataset=True):
         """Returns the loss value & metrics values for the model in test mode.
         Computation is done in batches.
         Arguments:
@@ -200,7 +198,6 @@ class DKTModel(tf.keras.Model):
                     use_multiprocessing=use_multiprocessing,
                     callbacks=callbacks,
                     return_dict=return_dict)
-                    # _use_cached_eval_dataset=True)
 
 
     def evaluate_generator(self, *args, **kwargs):
